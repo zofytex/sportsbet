@@ -173,6 +173,7 @@ header{border-bottom:1px solid var(--border);padding:1.5rem 3rem;display:flex;al
 <script>
 // ===== CONFIG =====
 var API_FOOT = "9e10ed64f9mshbfb7ad7244a5db4p19c2f0jsnb65a29080c16";
+var API_GEMINI = "AIzaSyCSZxVTK3O9uoXkNYOHyjob-yDs7K3Tk3Q";
 var API_ODDS = "0a88bcf87cc6e52ebb6a7186a3318b14";
 var API_NBA  = "c8c33e52-3058-41b7-aecf-3ef9b45242ec";
 
@@ -473,7 +474,52 @@ document.getElementById('modal-overlay').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
 });
 
-function analyzeMatch(m, container) {
+async function analyzeMatch(m, container) {
+  try {
+    var oddsStr = '';
+    if (m.oddsHome !== '-') oddsStr += 'Victoire ' + m.home + ': ' + m.oddsHome + ' | ';
+    if (m.oddsDraw && m.oddsDraw !== 'N/A' && m.oddsDraw !== '-') oddsStr += 'Match nul: ' + m.oddsDraw + ' | ';
+    if (m.oddsAway !== '-') oddsStr += 'Victoire ' + m.away + ': ' + m.oddsAway;
+
+    var prompt = 'Tu es un expert en paris sportifs. Analyse ce match de ' + m.sport + ': ' + m.home + ' vs ' + m.away + '.\n';
+    if (oddsStr) prompt += 'Cotes Winamax disponibles: ' + oddsStr + '\n';
+    prompt += '\nPropose 3 paris differents et interessants. Reponds UNIQUEMENT en JSON valide sans texte avant ou apres:\n';
+    prompt += '[{"category":"SAFE","bet":"description courte du pari","odd":"la cote exacte","explanation":"1-2 phrases claires"},{"category":"VALUE","bet":"description courte du pari","odd":"la cote exacte","explanation":"1-2 phrases claires"},{"category":"RISK","bet":"description courte du pari","odd":"la cote exacte","explanation":"1-2 phrases claires"}]';
+
+    var res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + API_GEMINI, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        contents: [{parts: [{text: prompt}]}],
+        generationConfig: {temperature: 0.7, maxOutputTokens: 800}
+      })
+    });
+
+    var data = await res.json();
+    var text = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] ? data.candidates[0].content.parts[0].text : '';
+    text = text.replace(/```json|```/g, '').trim();
+    var bets = JSON.parse(text);
+
+    var html = '<div class="bets-grid">';
+    for (var i = 0; i < bets.length; i++) {
+      var b = bets[i];
+      var cat = b.category.toLowerCase();
+      html += '<div class="bet-card ' + cat + '">';
+      html += '<div class="bet-header"><span class="bet-label">' + b.category + '</span><span class="bet-odd">' + b.odd + '</span></div>';
+      html += '<div class="bet-name">' + b.bet + '</div>';
+      html += '<div class="bet-desc">' + b.explanation + '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+    container.innerHTML = html;
+
+  } catch(e) {
+    // Fallback to math-based analysis
+    mathAnalyze(m, container);
+  }
+}
+
+function mathAnalyze(m, container) {
   var oH = parseFloat(m.oddsHome);
   var oD = parseFloat(m.oddsDraw);
   var oA = parseFloat(m.oddsAway);
@@ -605,6 +651,7 @@ function analyzeMatch(m, container) {
   html += '</div>';
   container.innerHTML = html;
 }
+
 </script>
 </body>
 </html>
