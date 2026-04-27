@@ -450,46 +450,97 @@ document.getElementById('modal-overlay').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
 });
 
-async function analyzeMatch(m, container) {
-  try {
-    var oddsStr = '';
-    if (m.oddsHome !== '-') oddsStr += '1 ('+m.home+'): '+m.oddsHome+' | ';
-    if (m.oddsDraw && m.oddsDraw !== 'N/A' && m.oddsDraw !== '-') oddsStr += 'X (nul): '+m.oddsDraw+' | ';
-    if (m.oddsAway !== '-') oddsStr += '2 ('+m.away+'): '+m.oddsAway;
+function analyzeMatch(m, container) {
+  // Convert odds to implied probabilities
+  var oH = parseFloat(m.oddsHome);
+  var oD = parseFloat(m.oddsDraw);
+  var oA = parseFloat(m.oddsAway);
+  var hasOdds = !isNaN(oH) && !isNaN(oA);
+  var hasDraw = !isNaN(oD) && m.oddsDraw !== 'N/A';
 
-    var prompt = 'Tu es un expert en paris sportifs. Analyse ce match de '+m.sport+' : '+m.home+' vs '+m.away+'.\n';
-    if (oddsStr) prompt += 'Cotes Winamax : '+oddsStr+'\n';
-    prompt += '\nReponds UNIQUEMENT en JSON valide, sans texte avant ou apres, sans backticks :\n';
-    prompt += '[{"category":"SAFE","bet":"nom court du pari","odd":"la cote","explanation":"1-2 phrases pourquoi safe"},{"category":"VALUE","bet":"nom court du pari","odd":"la cote","explanation":"1-2 phrases pourquoi value"},{"category":"RISK","bet":"nom court du pari","odd":"la cote","explanation":"1-2 phrases pourquoi risque mais interessant"}]';
+  var bets = [];
 
-    var res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 800,
-        messages: [{role:'user', content:prompt}]
-      })
+  if (hasOdds) {
+    // Calculate implied probabilities (removing bookmaker margin)
+    var pH = 1/oH;
+    var pA = 1/oA;
+    var pD = hasDraw ? 1/oD : 0;
+    var margin = pH + pA + pD;
+    var trueH = pH/margin;
+    var trueA = pA/margin;
+    var trueD = hasDraw ? pD/margin : 0;
+
+    // Expected Value = (prob * (odd-1)) - (1-prob)
+    var evH = trueH*(oH-1) - (1-trueH);
+    var evA = trueA*(oA-1) - (1-trueA);
+    var evD = hasDraw ? trueD*(oD-1) - (1-trueD) : -1;
+
+    // Sort outcomes by probability to find SAFE, VALUE, RISK
+    var outcomes = [
+      {name: m.home, type:'1', odd:oH, prob:trueH, ev:evH},
+      {name: m.away, type:'2', odd:oA, prob:trueA, ev:evA}
+    ];
+    if (hasDraw) outcomes.push({name:'Match nul', type:'X', odd:oD, prob:trueD, ev:evD});
+
+    // Sort by probability descending
+    outcomes.sort(function(a,b){ return b.prob - a.prob; });
+
+    // SAFE = highest probability outcome
+    var safe = outcomes[0];
+    bets.push({
+      category: 'SAFE',
+      bet: safe.type + ' — ' + safe.name,
+      odd: safe.odd.toFixed(2),
+      explanation: 'Probabilite implicite de '+Math.round(safe.prob*100)+'%. Pari le plus probable selon les cotes Winamax. Faible risque, rendement modere.',
+      ev: safe.ev
     });
-    var data = await res.json();
-    var text = data.content && data.content[0] ? data.content[0].text : '';
-    text = text.replace(/```json|```/g,'').trim();
-    var bets = JSON.parse(text);
-    var html = '<div class="bets-grid">';
-    for (var i = 0; i < bets.length; i++) {
-      var b = bets[i];
-      var cat = b.category.toLowerCase();
-      html += '<div class="bet-card '+cat+'">';
-      html += '<div class="bet-header"><span class="bet-label">'+b.category+'</span><span class="bet-odd">'+b.odd+'</span></div>';
-      html += '<div class="bet-name">'+b.bet+'</div>';
-      html += '<div class="bet-desc">'+b.explanation+'</div>';
-      html += '</div>';
-    }
-    html += '</div>';
-    container.innerHTML = html;
-  } catch(e) {
-    container.innerHTML = '<div class="error-msg">Erreur analyse : '+e.message+'</div>';
+
+    // VALUE = best expected value (not the safest)
+    var sorted_ev = outcomes.slice().sort(function(a,b){ return b.ev - a.ev; });
+    var value = sorted_ev[0].type === safe.type ? sorted_ev[1] || sorted_ev[0] : sorted_ev[0];
+    if (!value) value = outcomes[1] || outcomes[0];
+    bets.push({
+      category: 'VALUE',
+      bet: value.type + ' — ' + value.name,
+      odd: value.odd.toFixed(2),
+      explanation: 'Expected Value de '+(value.ev >= 0 ? '+' : '')+Math.round(value.ev*100)+'%. '+(value.ev >= 0 ? 'Cote sous-evaluee par Winamax, mathematiquement interessant.' : 'Cote correctement evaluee, bon compromis risque/rendement.'),
+      ev: value.ev
+    });
+
+    // RISK = lowest probability but highest odd
+    var risk = outcomes[outcomes.length-1];
+    if (risk.type === value.type) risk = outcomes[outcomes.length-2] || outcomes[outcomes.length-1];
+    bets.push({
+      category: 'RISK',
+      bet: risk.type + ' — ' + risk.name,
+      odd: risk.odd.toFixed(2),
+      explanation: 'Probabilite implicite de seulement '+Math.round(risk.prob*100)+'%. Pari risque mais cote elevee de '+risk.odd.toFixed(2)+'. A jouer avec une petite mise uniquement.',
+      ev: risk.ev
+    });
+
+  } else {
+    // No odds available — generate generic analysis
+    bets = [
+      {category:'SAFE', bet:'1 — '+m.home, odd:'N/A', explanation:'Cotes non disponibles sur Winamax. Analyse basee sur le statut de domicile. Les equipes a domicile gagnent statistiquement 45% des matchs.'},
+      {category:'VALUE', bet:'Double chance 1X', odd:'N/A', explanation:'Sans cotes disponibles, le double chance domicile/nul offre une securite accrue avec un bon compromis risque/rendement.'},
+      {category:'RISK', bet:'2 — '+m.away, odd:'N/A', explanation:'Victoire de l equipe exterieure. Statistiquement moins probable (30%) mais peut offrir une belle valeur si l equipe visiteuse est en forme.'}
+    ];
   }
+
+  // Render
+  var html = '<div class="bets-grid">';
+  for (var i = 0; i < bets.length; i++) {
+    var b = bets[i];
+    var cat = b.category.toLowerCase();
+    var evBadge = b.ev !== undefined ? '<span style="font-size:10px;opacity:0.6;margin-left:8px;">'+(b.ev >= 0 ? '✓ EV+' : '~ EV-')+'</span>' : '';
+    html += '<div class="bet-card '+cat+'">';
+    html += '<div class="bet-header"><span class="bet-label">'+b.category+'</span><span class="bet-odd">'+b.odd+evBadge+'</span></div>';
+    html += '<div class="bet-name">'+b.bet+'</div>';
+    html += '<div class="bet-desc">'+b.explanation+'</div>';
+    html += '</div>';
+  }
+  html += '</div>';
+  container.innerHTML = html;
 }
 </script>
 </body>
