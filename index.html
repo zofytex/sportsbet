@@ -476,47 +476,52 @@ document.getElementById('modal-overlay').addEventListener('click', function(e) {
 
 async function analyzeMatch(m, container) {
   try {
-    var oddsStr = '';
-    if (m.oddsHome !== '-') oddsStr += 'Victoire ' + m.home + ': ' + m.oddsHome + ' | ';
-    if (m.oddsDraw && m.oddsDraw !== 'N/A' && m.oddsDraw !== '-') oddsStr += 'Match nul: ' + m.oddsDraw + ' | ';
-    if (m.oddsAway !== '-') oddsStr += 'Victoire ' + m.away + ': ' + m.oddsAway;
+    var parts = [];
+    if (m.oddsHome !== "-") parts.push("Victoire " + m.home + ": " + m.oddsHome);
+    if (m.oddsDraw && m.oddsDraw !== "N/A" && m.oddsDraw !== "-") parts.push("Match nul: " + m.oddsDraw);
+    if (m.oddsAway !== "-") parts.push("Victoire " + m.away + ": " + m.oddsAway);
+    var oddsStr = parts.join(" | ");
 
-    var prompt = 'Tu es un expert en paris sportifs. Analyse ce match de ' + m.sport + ': ' + m.home + ' vs ' + m.away + '.\n';
-    if (oddsStr) prompt += 'Cotes Winamax disponibles: ' + oddsStr + '\n';
-    prompt += '\nPropose 3 paris differents et interessants. Reponds UNIQUEMENT en JSON valide sans texte avant ou apres:\n';
-    prompt += '[{"category":"SAFE","bet":"description courte du pari","odd":"la cote exacte","explanation":"1-2 phrases claires"},{"category":"VALUE","bet":"description courte du pari","odd":"la cote exacte","explanation":"1-2 phrases claires"},{"category":"RISK","bet":"description courte du pari","odd":"la cote exacte","explanation":"1-2 phrases claires"}]';
+    var prompt = "Tu es un expert en paris sportifs. Analyse ce match de " + m.sport + ": " + m.home + " vs " + m.away + ".";
+    if (oddsStr) prompt += " Cotes Winamax: " + oddsStr + ".";
+    prompt += " Propose 3 paris differents. Reponds UNIQUEMENT en JSON valide: ";
+    prompt += '[{"category":"SAFE","bet":"description du pari","odd":"cote","explanation":"explication"},';
+    prompt += '{"category":"VALUE","bet":"description du pari","odd":"cote","explanation":"explication"},';
+    prompt += '{"category":"RISK","bet":"description du pari","odd":"cote","explanation":"explication"}]';
 
-    var res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + API_GEMINI, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+    var res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + API_GEMINI, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
       body: JSON.stringify({
         contents: [{parts: [{text: prompt}]}],
-        generationConfig: {temperature: 0.7, maxOutputTokens: 800}
+        generationConfig: {temperature: 0.7, maxOutputTokens: 600}
       })
     });
 
     var data = await res.json();
-    var text = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] ? data.candidates[0].content.parts[0].text : '';
-    text = text.replace(/```json|```/g, '').trim();
+    var text = data.candidates[0].content.parts[0].text;
+    text = text.replace(/```json|```/g, "").trim();
     var bets = JSON.parse(text);
-
-    var html = '<div class="bets-grid">';
-    for (var i = 0; i < bets.length; i++) {
-      var b = bets[i];
-      var cat = b.category.toLowerCase();
-      html += '<div class="bet-card ' + cat + '">';
-      html += '<div class="bet-header"><span class="bet-label">' + b.category + '</span><span class="bet-odd">' + b.odd + '</span></div>';
-      html += '<div class="bet-name">' + b.bet + '</div>';
-      html += '<div class="bet-desc">' + b.explanation + '</div>';
-      html += '</div>';
-    }
-    html += '</div>';
-    container.innerHTML = html;
+    renderBets(bets, container);
 
   } catch(e) {
-    // Fallback to math-based analysis
     mathAnalyze(m, container);
   }
+}
+
+function renderBets(bets, container) {
+  var html = "<div class=\"bets-grid\">";
+  for (var i = 0; i < bets.length; i++) {
+    var b = bets[i];
+    var cat = b.category.toLowerCase();
+    html += "<div class=\"bet-card " + cat + "\">";
+    html += "<div class=\"bet-header\"><span class=\"bet-label\">" + b.category + "</span><span class=\"bet-odd\">" + b.odd + "</span></div>";
+    html += "<div class=\"bet-name\">" + b.bet + "</div>";
+    html += "<div class=\"bet-desc\">" + b.explanation + "</div>";
+    html += "</div>";
+  }
+  html += "</div>";
+  container.innerHTML = html;
 }
 
 function mathAnalyze(m, container) {
@@ -524,132 +529,36 @@ function mathAnalyze(m, container) {
   var oD = parseFloat(m.oddsDraw);
   var oA = parseFloat(m.oddsAway);
   var hasOdds = !isNaN(oH) && !isNaN(oA);
-  var hasDraw = !isNaN(oD) && m.oddsDraw !== 'N/A';
-  var raw = m.rawOdds;
+  var hasDraw = !isNaN(oD) && m.oddsDraw !== "N/A";
   var bets = [];
-  var allOptions = [];
 
   if (hasOdds) {
     var pH = 1/oH, pA = 1/oA, pD = hasDraw ? 1/oD : 0;
     var margin = pH + pA + pD;
-    var trueH = pH/margin, trueA = pA/margin, trueD = hasDraw ? pD/margin : 0;
-    var evH = trueH*(oH-1)-(1-trueH);
-    var evA = trueA*(oA-1)-(1-trueA);
-    var evD = hasDraw ? trueD*(oD-1)-(1-trueD) : -99;
+    var tH = pH/margin, tA = pA/margin, tD = hasDraw ? pD/margin : 0;
+    var evH = tH*(oH-1)-(1-tH), evA = tA*(oA-1)-(1-tA), evD = hasDraw ? tD*(oD-1)-(1-tD) : -99;
 
-    allOptions.push({label:'Victoire '+m.home, odd:oH, prob:trueH, ev:evH, type:'h2h'});
-    allOptions.push({label:'Victoire '+m.away, odd:oA, prob:trueA, ev:evA, type:'h2h'});
-    if (hasDraw) allOptions.push({label:'Match nul', odd:oD, prob:trueD, ev:evD, type:'h2h'});
-  }
-
-  // Add spreads if available
-  if (raw && raw.markets && raw.markets.spreads) {
-    raw.markets.spreads.forEach(function(o) {
-      var p = 1/o.price;
-      var ev = p*(o.price-1)-(1-p);
-      allOptions.push({
-        label: o.name + ' (handicap ' + (o.point > 0 ? '+' : '') + o.point + ' pts)',
-        odd: o.price, prob: p, ev: ev, type:'spread'
-      });
-    });
-  }
-
-  // Add totals if available
-  if (raw && raw.markets && raw.markets.totals) {
-    raw.markets.totals.forEach(function(o) {
-      var p = 1/o.price;
-      var ev = p*(o.price-1)-(1-p);
-      allOptions.push({
-        label: o.name + ' ' + o.point + ' pts',
-        odd: o.price, prob: p, ev: ev, type:'total'
-      });
-    });
-  }
-
-  if (allOptions.length > 0) {
-    // Sort by probability for SAFE
-    var byProb = allOptions.slice().sort(function(a,b){ return b.prob-a.prob; });
-    // Sort by EV for VALUE
-    var byEV = allOptions.slice().sort(function(a,b){ return b.ev-a.ev; });
-    // Sort by odd desc for RISK
-    var byOdd = allOptions.slice().sort(function(a,b){ return b.odd-a.odd; });
-
-    // SAFE = highest probability
-    var safe = byProb[0];
-    // VALUE = best EV that is different from safe
-    var value = null;
-    for (var vi = 0; vi < byEV.length; vi++) {
-      if (byEV[vi].label !== safe.label) { value = byEV[vi]; break; }
+    if (tH >= tA) {
+      bets.push({category:"SAFE", bet:"Victoire " + m.home, odd:oH.toFixed(2), explanation:"Favori a " + Math.round(tH*100) + "% selon Winamax. Pari le plus solide."});
+      bets.push({category:"VALUE", bet:"Victoire " + m.away, odd:oA.toFixed(2), explanation:"Outsider a " + Math.round(tA*100) + "%. EV de " + (evA>=0?"+":"") + Math.round(evA*100) + "%. Interessant si l equipe est en forme."});
+    } else {
+      bets.push({category:"SAFE", bet:"Victoire " + m.away, odd:oA.toFixed(2), explanation:"Favori a " + Math.round(tA*100) + "% selon Winamax. Pari le plus solide."});
+      bets.push({category:"VALUE", bet:"Victoire " + m.home, odd:oH.toFixed(2), explanation:"Outsider a " + Math.round(tH*100) + "%. EV de " + (evH>=0?"+":"") + Math.round(evH*100) + "%. Interessant si l equipe est en forme."});
     }
-    if (!value) value = byProb[1] || byProb[0];
-    // RISK = highest odd that is different from safe and value
-    var risk = null;
-    for (var ri = 0; ri < byOdd.length; ri++) {
-      if (byOdd[ri].label !== safe.label && byOdd[ri].label !== value.label) { risk = byOdd[ri]; break; }
+    if (hasDraw) {
+      bets.push({category:"RISK", bet:"Match nul", odd:oD.toFixed(2), explanation:"Probabilite de " + Math.round(tD*100) + "%. Cote elevee de " + oD.toFixed(2) + ". Petite mise recommandee."});
+    } else {
+      var fav = tH >= tA ? {name:m.home, odd:oH} : {name:m.away, odd:oA};
+      bets.push({category:"RISK", bet:"Victoire " + (tH >= tA ? m.away : m.home) + " + ecart < 10 pts", odd:(Math.max(oH,oA)*1.3).toFixed(2), explanation:"Pari combine risque mais potentiellement tres rentable si le match est serre."});
     }
-    if (!risk) risk = byProb[byProb.length-1];
-    // If still same, force different descriptions
-    if (risk.label === safe.label) {
-      risk = {label: risk.label, odd: risk.odd, prob: risk.prob, ev: risk.ev, forced: true};
-    }
-
-    bets.push({
-      category:'SAFE', bet:safe.label, odd:safe.odd.toFixed(2), ev:safe.ev,
-      explanation:'Probabilite implicite de '+Math.round(safe.prob*100)+'%. Option la plus probable selon les cotes Winamax. Mise conseillée : 60-70% de ta bankroll habituelle.'
-    });
-    bets.push({
-      category:'VALUE', bet:value.label, odd:value.odd.toFixed(2), ev:value.ev,
-      explanation:'Expected Value de '+(value.ev>=0?'+':'')+Math.round(value.ev*100)+'%. '+(value.ev>=0?'Cote sous-evaluee, mathematiquement avantageuse sur le long terme.':'Bon compromis entre risque et rendement potentiel.')
-    });
-    bets.push({
-      category:'RISK', bet:risk.label, odd:risk.odd.toFixed(2), ev:risk.ev,
-      explanation: risk.forced
-        ? 'Seules 2 issues disponibles sur ce match. Pari contraire au SAFE : probabilite de '+Math.round((1-risk.prob)*100)+'% de ne pas se produire. Joue uniquement en couverture.'
-        : 'Cote elevee de '+risk.odd.toFixed(2)+' pour une probabilite de '+Math.round(risk.prob*100)+'%. Pari audacieux, mise de 10-15% max recommandee.'
-    });
-  } else if (hasOdds && !hasDraw) {
-    // NBA: only 2 outcomes — create synthetic third option
-    var pH2 = 1/oH, pA2 = 1/oA, mg2 = pH2+pA2;
-    var tH2 = pH2/mg2, tA2 = pA2/mg2;
-    var evH2 = tH2*(oH-1)-(1-tH2), evA2 = tA2*(oA-1)-(1-tA2);
-    var favTeam = tH2 > tA2 ? {name:m.home, odd:oH, prob:tH2, ev:evH2} : {name:m.away, odd:oA, prob:tA2, ev:evA2};
-    var undTeam = tH2 > tA2 ? {name:m.away, odd:oA, prob:tA2, ev:evA2} : {name:m.home, odd:oH, prob:tH2, ev:evH2};
-    // Synthetic: combine both for a "pick" market analysis
-    bets.push({
-      category:'SAFE', bet:'Victoire '+favTeam.name, odd:favTeam.odd.toFixed(2), ev:favTeam.ev,
-      explanation:'Favori avec '+Math.round(favTeam.prob*100)+'% de chances selon Winamax. Pari le plus solide de la rencontre.'
-    });
-    bets.push({
-      category:'VALUE', bet:'Victoire '+undTeam.name+' (surprise)', odd:undTeam.odd.toFixed(2), ev:undTeam.ev,
-      explanation:'L'outsider a '+Math.round(undTeam.prob*100)+'% de chances. La cote de '+undTeam.odd.toFixed(2)+' peut representer une valeur si l'equipe est en forme.'
-    });
-    // Synthetic third: suggest an over/under based on the odds
-    var avgOdd = (oH+oA)/2;
-    bets.push({
-      category:'RISK', bet:'Ecart de moins de 10 pts', odd:(avgOdd*0.9).toFixed(2), ev:-0.05,
-      explanation:'Match equilibre (ecart de cotes: '+Math.abs(oH-oA).toFixed(2)+'). '+(Math.abs(oH-oA) < 0.5 ? 'Les deux equipes sont proches, un match serre est probable.' : 'Le favori devrait dominer mais les surprises arrivent.')
-    });
   } else {
     bets = [
-      {category:'SAFE', bet:'1 — '+m.home, odd:'N/A', explanation:'Cotes non disponibles. Equipe a domicile, avantage statistique de 45% en moyenne.'},
-      {category:'VALUE', bet:'Double chance 1X', odd:'N/A', explanation:'Sans cotes disponibles, le double chance offre la meilleure securite avec un bon compromis.'},
-      {category:'RISK', bet:'2 — '+m.away, odd:'N/A', explanation:'Victoire exterieure, moins probable (30%) mais peut offrir une grande valeur.'}
+      {category:"SAFE", bet:"Victoire " + m.home, odd:"N/A", explanation:"Equipe a domicile, avantage statistique de 45% en moyenne."},
+      {category:"VALUE", bet:"Double chance 1X", odd:"N/A", explanation:"Securite maximale, couvre victoire domicile et nul."},
+      {category:"RISK", bet:"Victoire " + m.away, odd:"N/A", explanation:"Surprise possible, fort potentiel de gain si l equipe exterieure est en forme."}
     ];
   }
-
-  var html = '<div class="bets-grid">';
-  for (var i = 0; i < bets.length; i++) {
-    var b = bets[i];
-    var cat = b.category.toLowerCase();
-    var evBadge = b.ev !== undefined ? '<span style="font-size:10px;opacity:0.6;margin-left:6px;">'+(b.ev>=0?'✓ EV+':'~ EV-')+'</span>' : '';
-    html += '<div class="bet-card '+cat+'">';
-    html += '<div class="bet-header"><span class="bet-label">'+b.category+'</span><span class="bet-odd">'+b.odd+evBadge+'</span></div>';
-    html += '<div class="bet-name">'+b.bet+'</div>';
-    html += '<div class="bet-desc">'+b.explanation+'</div>';
-    html += '</div>';
-  }
-  html += '</div>';
-  container.innerHTML = html;
+  renderBets(bets, container);
 }
 
 </script>
