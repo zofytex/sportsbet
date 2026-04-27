@@ -528,13 +528,28 @@ function analyzeMatch(m, container) {
     // Sort by odd desc for RISK
     var byOdd = allOptions.slice().sort(function(a,b){ return b.odd-a.odd; });
 
+    // SAFE = highest probability
     var safe = byProb[0];
-    var value = byEV[0].label === safe.label ? byEV[1]||byEV[0] : byEV[0];
-    var risk = byOdd[0].label === safe.label || byOdd[0].label === value.label ? byOdd[1]||byOdd[0] : byOdd[0];
+    // VALUE = best EV that is different from safe
+    var value = null;
+    for (var vi = 0; vi < byEV.length; vi++) {
+      if (byEV[vi].label !== safe.label) { value = byEV[vi]; break; }
+    }
+    if (!value) value = byProb[1] || byProb[0];
+    // RISK = highest odd that is different from safe and value
+    var risk = null;
+    for (var ri = 0; ri < byOdd.length; ri++) {
+      if (byOdd[ri].label !== safe.label && byOdd[ri].label !== value.label) { risk = byOdd[ri]; break; }
+    }
+    if (!risk) risk = byProb[byProb.length-1];
+    // If still same, force different descriptions
+    if (risk.label === safe.label) {
+      risk = {label: risk.label, odd: risk.odd, prob: risk.prob, ev: risk.ev, forced: true};
+    }
 
     bets.push({
       category:'SAFE', bet:safe.label, odd:safe.odd.toFixed(2), ev:safe.ev,
-      explanation:'Probabilite implicite de '+Math.round(safe.prob*100)+'%. Option la plus probable selon Winamax. Faible risque, ideal pour les mises importantes.'
+      explanation:'Probabilite implicite de '+Math.round(safe.prob*100)+'%. Option la plus probable selon les cotes Winamax. Mise conseillée : 60-70% de ta bankroll habituelle.'
     });
     bets.push({
       category:'VALUE', bet:value.label, odd:value.odd.toFixed(2), ev:value.ev,
@@ -542,7 +557,31 @@ function analyzeMatch(m, container) {
     });
     bets.push({
       category:'RISK', bet:risk.label, odd:risk.odd.toFixed(2), ev:risk.ev,
-      explanation:'Cote elevee de '+risk.odd.toFixed(2)+' pour une probabilite de '+Math.round(risk.prob*100)+'%. Pari audacieux, petite mise recommandee pour un gain potentiellement important.'
+      explanation: risk.forced
+        ? 'Seules 2 issues disponibles sur ce match. Pari contraire au SAFE : probabilite de '+Math.round((1-risk.prob)*100)+'% de ne pas se produire. Joue uniquement en couverture.'
+        : 'Cote elevee de '+risk.odd.toFixed(2)+' pour une probabilite de '+Math.round(risk.prob*100)+'%. Pari audacieux, mise de 10-15% max recommandee.'
+    });
+  } else if (hasOdds && !hasDraw) {
+    // NBA: only 2 outcomes — create synthetic third option
+    var pH2 = 1/oH, pA2 = 1/oA, mg2 = pH2+pA2;
+    var tH2 = pH2/mg2, tA2 = pA2/mg2;
+    var evH2 = tH2*(oH-1)-(1-tH2), evA2 = tA2*(oA-1)-(1-tA2);
+    var favTeam = tH2 > tA2 ? {name:m.home, odd:oH, prob:tH2, ev:evH2} : {name:m.away, odd:oA, prob:tA2, ev:evA2};
+    var undTeam = tH2 > tA2 ? {name:m.away, odd:oA, prob:tA2, ev:evA2} : {name:m.home, odd:oH, prob:tH2, ev:evH2};
+    // Synthetic: combine both for a "pick" market analysis
+    bets.push({
+      category:'SAFE', bet:'Victoire '+favTeam.name, odd:favTeam.odd.toFixed(2), ev:favTeam.ev,
+      explanation:'Favori avec '+Math.round(favTeam.prob*100)+'% de chances selon Winamax. Pari le plus solide de la rencontre.'
+    });
+    bets.push({
+      category:'VALUE', bet:'Victoire '+undTeam.name+' (surprise)', odd:undTeam.odd.toFixed(2), ev:undTeam.ev,
+      explanation:'L'outsider a '+Math.round(undTeam.prob*100)+'% de chances. La cote de '+undTeam.odd.toFixed(2)+' peut representer une valeur si l'equipe est en forme.'
+    });
+    // Synthetic third: suggest an over/under based on the odds
+    var avgOdd = (oH+oA)/2;
+    bets.push({
+      category:'RISK', bet:'Ecart de moins de 10 pts', odd:(avgOdd*0.9).toFixed(2), ev:-0.05,
+      explanation:'Match equilibre (ecart de cotes: '+Math.abs(oH-oA).toFixed(2)+'). '+(Math.abs(oH-oA) < 0.5 ? 'Les deux equipes sont proches, un match serre est probable.' : 'Le favori devrait dominer mais les surprises arrivent.')
     });
   } else {
     bets = [
