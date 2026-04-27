@@ -282,11 +282,31 @@ function findRawOdds(oddsData, home, away) {
     if (sH > 40 && sA > 40 && sH+sA > bestScore) { bestScore = sH+sA; best = g; }
   }
   if (!best) return null;
-  var bk = best.bookmakers && best.bookmakers.find(function(b){ return b.key==='winamax_fr'; });
-  if (!bk) bk = best.bookmakers && best.bookmakers[0];
+  // Prefer bookmaker with most markets (pmu_fr has spreads+totals)
+  var bk = null;
+  var maxMarkets = 0;
+  var preferred = ['pmu_fr','winamax_fr','unibet_fr','unibet_nl','coolbet'];
+  if (best.bookmakers) {
+    // First try preferred bookmakers with most markets
+    for (var pi = 0; pi < preferred.length; pi++) {
+      var pb = best.bookmakers.find(function(b){ return b.key===preferred[pi]; });
+      if (pb && pb.markets && pb.markets.length > maxMarkets) {
+        maxMarkets = pb.markets.length;
+        bk = pb;
+      }
+    }
+    // If none found, take the one with most markets
+    if (!bk) {
+      best.bookmakers.forEach(function(b) {
+        if (b.markets && b.markets.length > maxMarkets) {
+          maxMarkets = b.markets.length;
+          bk = b;
+        }
+      });
+    }
+  }
   if (!bk) return null;
-  // Extract all markets
-  var result = {home_team: best.home_team, away_team: best.away_team, markets: {}};
+  var result = {home_team: best.home_team, away_team: best.away_team, markets: {}, bookmaker: bk.title};
   if (bk.markets) {
     bk.markets.forEach(function(mk) { result.markets[mk.key] = mk.outcomes; });
   }
@@ -483,11 +503,16 @@ async function analyzeMatch(m, container) {
     var oddsStr = parts.join(" | ");
 
     var prompt = "Tu es un expert en paris sportifs. Analyse ce match de " + m.sport + ": " + m.home + " vs " + m.away + ".";
-    if (oddsStr) prompt += " Cotes Winamax: " + oddsStr + ".";
-    prompt += " Propose 3 paris differents. Reponds UNIQUEMENT en JSON valide: ";
-    prompt += '[{"category":"SAFE","bet":"description du pari","odd":"cote","explanation":"explication"},';
-    prompt += '{"category":"VALUE","bet":"description du pari","odd":"cote","explanation":"explication"},';
-    prompt += '{"category":"RISK","bet":"description du pari","odd":"cote","explanation":"explication"}]';
+    if (oddsStr) prompt += " Cotes Winamax disponibles: " + oddsStr + ".";
+    prompt += " Propose exactement 3 paris differents et complementaires en utilisant les cotes fournies. ";
+    prompt += "Regles: ";
+    prompt += "1) SAFE = le pari le plus probable avec sa vraie cote Winamax et une explication claire. ";
+    prompt += "2) VALUE = un pari avec une bonne valeur mathematique basee sur les cotes disponibles, avec sa vraie cote Winamax. ";
+    prompt += "3) RISK = un pari audacieux que Winamax proposerait sur ce match (ex: handicap, total points, victoire de l outsider) avec une cote estimee realiste entre 2.00 et 4.00. Ce pari doit avoir du sens sportivement. ";
+    prompt += "Reponds UNIQUEMENT en JSON valide sans texte avant ou apres: ";
+    prompt += '[{"category":"SAFE","bet":"description precise","odd":"cote","explanation":"explication courte"},';
+    prompt += '{"category":"VALUE","bet":"description precise","odd":"cote","explanation":"explication courte"},';
+    prompt += '{"category":"RISK","bet":"description precise","odd":"cote estimee","explanation":"explication courte"}]';
 
     var res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + API_GEMINI, {
       method: "POST",
