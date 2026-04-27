@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SportsBet Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--red:#D4001A;--black:#0A0A0A;--white:#F5F2ED;--gray:#1A1A1A;--muted:#555;--border:#2A2A2A}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--black);color:var(--white);font-family:'DM Sans',sans-serif;font-weight:300;min-height:100vh}
+header{border-bottom:1px solid var(--border);padding:1.5rem 3rem;display:flex;align-items:center}
+.logo{display:flex;align-items:center;gap:1rem;cursor:pointer}
+.logo-icon{width:42px;height:42px;background:var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:16px;color:white}
+.logo-text{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:4px}
+.logo-sub{font-size:11px;color:var(--muted);letter-spacing:3px;text-transform:uppercase}
+.main-nav{display:flex;border-bottom:1px solid var(--border);padding:0 3rem;background:var(--black);position:sticky;top:0;z-index:100}
+.main-tab{padding:1rem 1.5rem;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;display:flex;align-items:center;gap:8px}
+.main-tab:hover{color:var(--white)}
+.main-tab.active{color:var(--white);border-bottom-color:var(--red)}
+.sub-nav{display:none;padding:0 3rem;border-bottom:1px solid var(--border);background:#111;overflow-x:auto;white-space:nowrap}
+.sub-nav.visible{display:flex}
+.sub-tab{padding:0.7rem 1.2rem;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;display:inline-block}
+.sub-tab:hover{color:var(--white)}
+.sub-tab.active{color:var(--red);border-bottom-color:var(--red)}
+.page{display:none;padding:3rem;max-width:1100px;margin:0 auto}
+.page.active{display:block}
+.hero{text-align:center;padding:6rem 2rem}
+.hero-title{font-family:'Bebas Neue',sans-serif;font-size:80px;letter-spacing:6px;line-height:1;margin-bottom:1rem}
+.hero-title span{color:var(--red)}
+.hero-sub{font-size:16px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:3rem}
+.hero-badges{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap}
+.hero-badge{padding:8px 20px;border:1px solid var(--border);border-radius:20px;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+.hero-badge.on{border-color:var(--red);color:var(--red)}
+.coming-soon{text-align:center;padding:6rem 2rem}
+.coming-soon-icon{font-size:60px;margin-bottom:1.5rem}
+.coming-soon-title{font-family:'Bebas Neue',sans-serif;font-size:48px;letter-spacing:4px;color:var(--muted)}
+.coming-soon-sub{font-size:13px;color:var(--muted);letter-spacing:2px;margin-top:0.5rem;text-transform:uppercase}
+.section-header{display:flex;align-items:baseline;gap:1rem;margin-bottom:2rem}
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:3px}
+.section-count{font-size:13px;color:var(--muted);letter-spacing:2px}
+.loading-msg{text-align:center;padding:4rem;color:var(--muted);font-size:14px;letter-spacing:2px}
+.loader{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--red);border-radius:50%;animation:spin 0.8s linear infinite;margin-right:10px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-msg{background:rgba(212,0,26,0.1);border:1px solid rgba(212,0,26,0.3);border-radius:8px;padding:1.5rem 2rem;color:#ff4455;font-size:14px;margin-bottom:2rem}
+.matchday-group{margin-bottom:2rem}
+.match-card{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:1.4rem 2rem;border:1px solid var(--border);margin-bottom:1px;background:var(--gray);transition:all 0.15s;cursor:pointer}
+.match-card:first-child{border-radius:4px 4px 0 0}
+.match-card:last-child{border-radius:0 0 4px 4px;margin-bottom:0}
+.match-card:only-child{border-radius:4px}
+.match-card:hover{background:#252525;border-color:#444}
+.team{display:flex;align-items:center;gap:12px}
+.team-away{flex-direction:row-reverse;text-align:right}
+.team-logo{width:36px;height:36px;border-radius:50%;background:var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0;overflow:hidden}
+.team-logo img{width:100%;height:100%;object-fit:contain;padding:4px}
+.team-name{font-size:15px;font-weight:400}
+.match-info{text-align:center;padding:0 2rem;min-width:130px}
+.match-time{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px}
+.match-date{font-size:11px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;margin-top:2px}
+.odds-legend{text-align:center;font-size:11px;letter-spacing:3px;color:var(--muted);margin-bottom:0.5rem;text-transform:uppercase}
+.odds-row{display:flex;gap:6px;justify-content:center;margin-top:6px}
+.odd-pill{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500}
+.odd-home{background:rgba(212,0,26,0.15);color:#ff4455;border:1px solid rgba(212,0,26,0.3)}
+.odd-draw{background:rgba(255,255,255,0.06);color:#aaa;border:1px solid rgba(255,255,255,0.1)}
+.odd-away{background:rgba(50,150,255,0.12);color:#5599ff;border:1px solid rgba(50,150,255,0.25)}
+.odd-na{background:rgba(255,255,255,0.04);color:#444;border:1px solid rgba(255,255,255,0.06)}
+/* MODAL */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:1000;backdrop-filter:blur(4px);align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#111;border:1px solid var(--border);border-radius:8px;width:90%;max-width:600px;max-height:85vh;overflow-y:auto;padding:2rem;position:relative}
+.modal-close{position:absolute;top:1rem;right:1.2rem;font-size:22px;cursor:pointer;color:var(--muted);background:none;border:none;color:var(--muted)}
+.modal-close:hover{color:var(--white)}
+.modal-header{display:flex;align-items:center;justify-content:center;gap:1rem;margin-bottom:1.5rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.modal-team{font-size:15px;font-weight:500}
+.modal-vs{font-size:12px;color:var(--muted);letter-spacing:2px}
+.modal-logo{width:32px;height:32px;object-fit:contain}
+.ai-loading{text-align:center;padding:2rem;color:var(--muted);font-size:13px;letter-spacing:2px}
+.bets-grid{display:flex;flex-direction:column;gap:1rem}
+.bet-card{border-radius:6px;padding:1.2rem 1.5rem;border:1px solid}
+.bet-card.safe{background:rgba(0,200,100,0.06);border-color:rgba(0,200,100,0.25)}
+.bet-card.value{background:rgba(255,180,0,0.06);border-color:rgba(255,180,0,0.25)}
+.bet-card.risk{background:rgba(212,0,26,0.06);border-color:rgba(212,0,26,0.25)}
+.bet-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem}
+.bet-label{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px}
+.bet-card.safe .bet-label{color:#00c864}
+.bet-card.value .bet-label{color:#ffb400}
+.bet-card.risk .bet-label{color:#ff4455}
+.bet-odd{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px}
+.bet-card.safe .bet-odd{color:#00c864}
+.bet-card.value .bet-odd{color:#ffb400}
+.bet-card.risk .bet-odd{color:#ff4455}
+.bet-name{font-size:14px;font-weight:500;margin-bottom:0.4rem;color:var(--white)}
+.bet-desc{font-size:13px;color:var(--muted);line-height:1.6}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo" onclick="showMain('accueil')">
+    <div class="logo-icon">SB</div>
+    <div>
+      <div class="logo-text">SportsBet</div>
+      <div class="logo-sub">Analyzer</div>
+    </div>
+  </div>
+</header>
+
+<nav class="main-nav">
+  <div class="main-tab active" onclick="showMain('accueil')" id="tab-accueil"><span>🏠</span> Accueil</div>
+  <div class="main-tab" onclick="showMain('football')" id="tab-football"><span>⚽</span> Football</div>
+  <div class="main-tab" onclick="showMain('tennis')" id="tab-tennis"><span>🎾</span> Tennis</div>
+  <div class="main-tab" onclick="showMain('basket')" id="tab-basket"><span>🏀</span> Basket</div>
+</nav>
+
+<div class="sub-nav" id="subnav-football">
+  <div class="sub-tab active" onclick="showLeague(54,'Bundesliga','bundesliga')" id="subtab-bundesliga">🇩🇪 Bundesliga</div>
+  <div class="sub-tab" onclick="showLeague(47,'Premier League','premierleague')" id="subtab-premierleague">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</div>
+  <div class="sub-tab" onclick="showLeague(87,'La Liga','laliga')" id="subtab-laliga">🇪🇸 La Liga</div>
+  <div class="sub-tab" onclick="showLeague(55,'Serie A','seriea')" id="subtab-seriea">🇮🇹 Serie A</div>
+  <div class="sub-tab" onclick="showLeague(53,'Ligue 1','ligue1')" id="subtab-ligue1">🇫🇷 Ligue 1</div>
+  <div class="sub-tab" onclick="showLeague(42,'Champions League','ucl')" id="subtab-ucl">⭐ Champions League</div>
+  <div class="sub-tab" onclick="showLeague(73,'Europa League','uel')" id="subtab-uel">🟠 Europa League</div>
+  <div class="sub-tab" onclick="showLeague(77,'Coupe du Monde','worldcup')" id="subtab-worldcup">🌍 Coupe du Monde</div>
+  <div class="sub-tab" onclick="showLeague(130,'Conference League','conferenceleague')" id="subtab-conferenceleague">🟣 Conference League</div>
+</div>
+
+<div class="sub-nav" id="subnav-basket">
+  <div class="sub-tab active" id="subtab-nba">🏀 NBA</div>
+</div>
+
+<div class="page active" id="page-accueil">
+  <div class="hero">
+    <div class="hero-title">Sports<span>Bet</span></div>
+    <div class="hero-sub">Analyse IA des paris sportifs</div>
+    <div class="hero-badges">
+      <div class="hero-badge on">⚽ Football Live</div>
+      <div class="hero-badge on">🏀 NBA Live</div>
+      <div class="hero-badge">🎾 Tennis bientot</div>
+      <div class="hero-badge on">📊 Safe / Value / Risk</div>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="page-football">
+  <div class="section-header">
+    <div class="section-title" id="league-name">Bundesliga</div>
+    <div class="section-count" id="match-count"></div>
+  </div>
+  <div id="matches-container"><div class="loading-msg"><span class="loader"></span> Chargement...</div></div>
+</div>
+
+<div class="page" id="page-tennis">
+  <div class="coming-soon"><div class="coming-soon-icon">🎾</div><div class="coming-soon-title">Tennis</div><div class="coming-soon-sub">Bientot disponible</div></div>
+</div>
+
+<div class="page" id="page-basket">
+  <div class="section-header">
+    <div class="section-title">NBA</div>
+    <div class="section-count" id="nba-count"></div>
+  </div>
+  <div id="nba-container"><div class="loading-msg"><span class="loader"></span> Chargement...</div></div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-header" id="modal-header"></div>
+    <div id="modal-content"><div class="ai-loading"><span class="loader"></span> Analyse IA en cours...</div></div>
+  </div>
+</div>
+
+<script>
+// ===== CONFIG =====
+var API_FOOT = "9e10ed64f9mshbfb7ad7244a5db4p19c2f0jsnb65a29080c16";
+var API_ODDS = "0a88bcf87cc6e52ebb6a7186a3318b14";
+var API_NBA  = "c8c33e52-3058-41b7-aecf-3ef9b45242ec";
+
+var ODDS_KEYS = {
+  54:'soccer_germany_bundesliga', 47:'soccer_epl', 87:'soccer_spain_la_liga',
+  55:'soccer_italy_serie_a', 53:'soccer_france_ligue_one',
+  42:'soccer_uefa_champs_league', 73:'soccer_uefa_europa_league',
+  77:'soccer_fifa_world_cup', 130:'soccer_uefa_europa_conference_league'
+};
+
+var NBA_ABBR = {
+  1:'ATL',2:'BOS',3:'NOP',4:'CHI',5:'CLE',6:'DAL',7:'DEN',8:'DET',
+  9:'GSW',10:'HOU',11:'IND',12:'LAC',13:'LAL',14:'MIA',15:'MIL',
+  16:'MIN',17:'BKN',18:'NYK',19:'ORL',20:'PHI',21:'PHX',22:'POR',
+  23:'SAC',24:'SAS',25:'OKC',26:'UTA',27:'MEM',28:'WAS',29:'TOR'
+};
+
+var NAME_ALIASES = {
+  'bayern munchen':'bayern munich','fc bayern munchen':'bayern munich',
+  'paris saint-germain':'paris saint germain','psg':'paris saint germain','paris sg':'paris saint germain',
+  'monchengladbach':'borussia monchengladbach',"m'gladbach":'borussia monchengladbach','gladbach':'borussia monchengladbach',
+  'dortmund':'borussia dortmund','bvb':'borussia dortmund',
+  'leverkusen':'bayer leverkusen','hoffenheim':'tsg hoffenheim',
+  'frankfurt':'eintracht frankfurt','koln':'1. fc koln','heidenheim':'1. fc heidenheim',
+  'mainz':'fsv mainz 05','st. pauli':'fc st. pauli',
+  'wolfsburg':'vfl wolfsburg','freiburg':'sc freiburg','werder':'werder bremen',
+  'stuttgart':'vfb stuttgart','hamburg':'hamburger sv',
+  'lens':'rc lens','rc lens':'rc lens','monaco':'as monaco',
+  'lyon':'lyon','marseille':'marseille','lille':'lille',
+  'wolves':'wolverhampton wanderers','wolverhampton':'wolverhampton wanderers',
+  'tottenham':'tottenham hotspur','spurs':'tottenham hotspur',
+  'man utd':'manchester united','man city':'manchester city',
+  'newcastle':'newcastle united','west ham':'west ham united',
+  'brighton':'brighton and hove albion','nottm forest':'nottingham forest',
+  'atletico':'atletico madrid','atletico de madrid':'atletico madrid',
+  'osasuna':'ca osasuna','betis':'real betis','sociedad':'real sociedad',
+  'athletic':'athletic bilbao','celta':'celta vigo','rayo':'rayo vallecano',
+  'inter':'inter milan','ac milan':'ac milan','juventus':'juventus'
+};
+
+var _matchData = [];
+
+// ===== UTILS =====
+function cleanStr(s) {
+  return s.toLowerCase()
+    .replace(/[éèêë]/g,'e').replace(/[üùûú]/g,'u').replace(/[öôó]/g,'o')
+    .replace(/[äàâá]/g,'a').replace(/[íî]/g,'i').replace(/ñ/g,'n').replace(/ç/g,'c')
+    .trim();
+}
+function normName(s) {
+  var c = cleanStr(s);
+  return NAME_ALIASES[c] || c;
+}
+function matchScore(a, b) {
+  var na = normName(a), nb = normName(b);
+  if (na === nb) return 100;
+  if (na.includes(nb) || nb.includes(na)) return 85;
+  var wa = na.split(' '), wb = nb.split(' ');
+  var shared = wa.filter(function(w){ return w.length > 2 && wb.indexOf(w) !== -1; }).length;
+  return shared > 0 ? 50 + shared*10 : 0;
+}
+function fmtDate(s) {
+  var d = new Date(s);
+  var j = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+  var m = ['Jan','Fev','Mar','Avr','Mai','Juin','Juil','Aout','Sep','Oct','Nov','Dec'];
+  return j[d.getDay()] + ' ' + d.getDate() + ' ' + m[d.getMonth()];
+}
+function fmtTime(s) {
+  var d = new Date(s);
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+function findOdds(oddsData, home, away) {
+  if (!oddsData || !oddsData.length) return null;
+  var best = null, bestScore = 0;
+  for (var i = 0; i < oddsData.length; i++) {
+    var g = oddsData[i];
+    var sH = matchScore(home, g.home_team);
+    var sA = matchScore(away, g.away_team);
+    if (sH > 40 && sA > 40 && sH+sA > bestScore) {
+      bestScore = sH+sA; best = g;
+    }
+  }
+  if (!best) return null;
+  var bk = best.bookmakers && best.bookmakers.find(function(b){ return b.key==='winamax_fr'; });
+  if (!bk) bk = best.bookmakers && best.bookmakers[0];
+  if (!bk) return null;
+  var h2h = bk.markets && bk.markets.find(function(m){ return m.key==='h2h'; });
+  if (!h2h || !h2h.outcomes) return null;
+  var draw = h2h.outcomes.find(function(o){ return o.name==='Draw'; });
+  var rest = h2h.outcomes.filter(function(o){ return o.name!=='Draw'; });
+  rest.sort(function(a,b){ return matchScore(home,b.name)-matchScore(home,a.name); });
+  return {
+    home: rest[0] ? rest[0].price.toFixed(2) : '-',
+    draw: draw ? draw.price.toFixed(2) : 'N/A',
+    away: rest[1] ? rest[1].price.toFixed(2) : '-'
+  };
+}
+
+// ===== NAVIGATION =====
+var currentLeague = null, nbaLoaded = false;
+
+function showMain(s) {
+  document.querySelectorAll('.main-tab').forEach(function(t){ t.classList.remove('active'); });
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelectorAll('.sub-nav').forEach(function(n){ n.classList.remove('visible'); });
+  document.getElementById('tab-'+s).classList.add('active');
+  if (s === 'football') {
+    document.getElementById('subnav-football').classList.add('visible');
+    document.getElementById('page-football').classList.add('active');
+    if (!currentLeague) showLeague(54,'Bundesliga','bundesliga');
+  } else if (s === 'basket') {
+    document.getElementById('subnav-basket').classList.add('visible');
+    document.getElementById('page-basket').classList.add('active');
+    if (!nbaLoaded) { nbaLoaded = true; fetchNBA(); }
+  } else if (s === 'tennis') {
+    document.getElementById('page-tennis').classList.add('active');
+  } else {
+    document.getElementById('page-accueil').classList.add('active');
+  }
+}
+
+function showLeague(id, name, key) {
+  document.querySelectorAll('.sub-tab').forEach(function(t){ t.classList.remove('active'); });
+  var el = document.getElementById('subtab-'+key);
+  if (el) el.classList.add('active');
+  document.getElementById('league-name').textContent = name;
+  document.getElementById('match-count').textContent = '';
+  document.getElementById('matches-container').innerHTML = '<div class="loading-msg"><span class="loader"></span> Chargement...</div>';
+  currentLeague = id;
+  fetchFootball(id);
+}
+
+// ===== FOOTBALL =====
+async function fetchFootball(leagueId) {
+  try {
+    var res = await fetch('https://free-api-live-football-data.p.rapidapi.com/football-get-all-matches-by-league?leagueid='+leagueId, {
+      headers: {'X-RapidAPI-Key': API_FOOT, 'X-RapidAPI-Host': 'free-api-live-football-data.p.rapidapi.com'}
+    });
+    if (!res.ok) throw new Error('Erreur API: '+res.status);
+    var data = await res.json();
+    var all = (data.response && data.response.matches) ? data.response.matches : [];
+    var today = new Date();
+    var upcoming = all.filter(function(m){
+      if (!m.status || !m.status.utcTime) return false;
+      return new Date(m.status.utcTime) >= today && !m.status.finished;
+    }).slice(0,20);
+
+    var oddsData = [];
+    var oddsKey = ODDS_KEYS[leagueId];
+    if (oddsKey) {
+      try {
+        var or = await fetch('https://api.the-odds-api.com/v4/sports/'+oddsKey+'/odds/?apiKey='+API_ODDS+'&regions=eu&markets=h2h&oddsFormat=decimal&bookmakers=winamax_fr');
+        if (or.ok) oddsData = await or.json();
+      } catch(e) {}
+    }
+    renderFootball(upcoming, oddsData);
+  } catch(e) {
+    document.getElementById('matches-container').innerHTML = '<div class="error-msg">'+e.message+'</div>';
+  }
+}
+
+function renderFootball(matches, oddsData) {
+  _matchData = [];
+  var c = document.getElementById('matches-container');
+  if (!matches.length) { c.innerHTML = '<div class="loading-msg">Aucun match a venir.</div>'; return; }
+  document.getElementById('match-count').textContent = matches.length + ' matchs';
+  var html = '<div class="odds-legend">1 &nbsp; X &nbsp; 2 &nbsp; <span style="font-size:10px;color:#e84d0e;">● Winamax</span></div><div class="matchday-group">';
+  for (var i = 0; i < matches.length; i++) {
+    var m = matches[i];
+    var hn = (m.home && m.home.name) ? m.home.name : 'Domicile';
+    var an = (m.away && m.away.name) ? m.away.name : 'Exterieur';
+    var hid = m.home ? m.home.id : 0;
+    var aid = m.away ? m.away.id : 0;
+    var ds = (m.status && m.status.utcTime) ? m.status.utcTime : '';
+    var o = findOdds(oddsData, hn, an);
+    var hlg = hid ? 'https://images.fotmob.com/image_resources/logo/teamlogo/'+hid+'.png' : '';
+    var alg = aid ? 'https://images.fotmob.com/image_resources/logo/teamlogo/'+aid+'.png' : '';
+    var idx = _matchData.length;
+    _matchData.push({home:hn,away:an,homeLogo:hlg,awayLogo:alg,oddsHome:o?o.home:'-',oddsDraw:o?o.draw:'N/A',oddsAway:o?o.away:'-',sport:'Football'});
+    var oddsHtml = o
+      ? '<div class="odds-row"><span class="odd-pill odd-home">'+o.home+'</span><span class="odd-pill odd-draw">'+o.draw+'</span><span class="odd-pill odd-away">'+o.away+'</span></div>'
+      : '<div class="odds-row"><span class="odd-pill odd-na">-</span><span class="odd-pill odd-na">-</span><span class="odd-pill odd-na">-</span></div>';
+    var hLogoHtml = hlg ? '<img src="'+hlg+'" style="width:100%;height:100%;object-fit:contain;padding:4px;" onerror="this.style.display=\'none\'">' : hn.substring(0,2).toUpperCase();
+    var aLogoHtml = alg ? '<img src="'+alg+'" style="width:100%;height:100%;object-fit:contain;padding:4px;" onerror="this.style.display=\'none\'">' : an.substring(0,2).toUpperCase();
+    html += '<div class="match-card" onclick="openMatch('+idx+')">';
+    html += '<div class="team"><div class="team-logo">'+hLogoHtml+'</div><span class="team-name">'+hn+'</span></div>';
+    html += '<div class="match-info"><div class="match-time">'+(ds?fmtTime(ds):'--:--')+'</div><div class="match-date">'+(ds?fmtDate(ds):'')+'</div>'+oddsHtml+'</div>';
+    html += '<div class="team team-away"><div class="team-logo">'+aLogoHtml+'</div><span class="team-name">'+an+'</span></div>';
+    html += '</div>';
+  }
+  html += '</div>';
+  c.innerHTML = html;
+}
+
+// ===== NBA =====
+async function fetchNBA() {
+  try {
+    var today = new Date().toISOString().split('T')[0];
+    var future = new Date(Date.now()+14*24*60*60*1000).toISOString().split('T')[0];
+    var res = await fetch('https://api.balldontlie.io/v1/games?seasons[]=2025&start_date='+today+'&end_date='+future+'&per_page=20', {
+      headers: {'Authorization': API_NBA}
+    });
+    if (!res.ok) throw new Error('Erreur NBA: '+res.status);
+    var data = await res.json();
+    var games = (data.data || []).filter(function(g){ return g.status !== 'Final'; });
+    games.sort(function(a,b){ return new Date(a.datetime||a.date) - new Date(b.datetime||b.date); });
+
+    var oddsNBA = [];
+    try {
+      var or = await fetch('https://api.the-odds-api.com/v4/sports/basketball_nba/odds/?apiKey='+API_ODDS+'&regions=eu&markets=h2h&oddsFormat=decimal&bookmakers=winamax_fr');
+      if (or.ok) oddsNBA = await or.json();
+    } catch(e) {}
+    renderNBA(games, oddsNBA);
+  } catch(e) {
+    document.getElementById('nba-container').innerHTML = '<div class="error-msg">'+e.message+'</div>';
+  }
+}
+
+function renderNBA(games, oddsNBA) {
+  _matchData = [];
+  var c = document.getElementById('nba-container');
+  if (!games.length) { c.innerHTML = '<div class="loading-msg">Aucun match NBA.</div>'; return; }
+  document.getElementById('nba-count').textContent = games.length + ' matchs';
+  var html = '<div class="odds-legend">1 &nbsp; 2 &nbsp; <span style="font-size:10px;color:#e84d0e;">● Winamax</span></div><div class="matchday-group">';
+  for (var i = 0; i < games.length; i++) {
+    var g = games[i];
+    var hn = g.home_team ? g.home_team.full_name : 'Home';
+    var an = g.visitor_team ? g.visitor_team.full_name : 'Away';
+    var hid = g.home_team ? g.home_team.id : 0;
+    var aid = g.visitor_team ? g.visitor_team.id : 0;
+    var hab = g.home_team ? g.home_team.abbreviation : '';
+    var aab = g.visitor_team ? g.visitor_team.abbreviation : '';
+    var ds = g.datetime || g.date || '';
+    var hlg = hab ? 'https://cdn.ssref.net/req/202501072/tlogo/bbr/'+hab+'-2025.png' : '';
+    var alg = aab ? 'https://cdn.ssref.net/req/202501072/tlogo/bbr/'+aab+'-2025.png' : '';
+    var o = findOdds(oddsNBA, hn, an);
+    var idx = _matchData.length;
+    _matchData.push({home:hn,away:an,homeLogo:hlg,awayLogo:alg,oddsHome:o?o.home:'-',oddsDraw:'N/A',oddsAway:o?o.away:'-',sport:'NBA'});
+    var oddsHtml = o
+      ? '<div class="odds-row"><span class="odd-pill odd-home">'+o.home+'</span><span class="odd-pill odd-away">'+o.away+'</span></div>'
+      : '<div class="odds-row"><span class="odd-pill odd-na">-</span><span class="odd-pill odd-na">-</span></div>';
+    var hLogoHtml = hlg ? '<img src="'+hlg+'" style="width:100%;height:100%;object-fit:contain;padding:3px;" onerror="this.style.display=\'none\'">' : hn.split(' ').pop().substring(0,3).toUpperCase();
+    var aLogoHtml = alg ? '<img src="'+alg+'" style="width:100%;height:100%;object-fit:contain;padding:3px;" onerror="this.style.display=\'none\'">' : an.split(' ').pop().substring(0,3).toUpperCase();
+    var timeDisp = (ds && ds.indexOf('T') !== -1) ? fmtTime(ds) : '--:--';
+    html += '<div class="match-card" onclick="openMatch('+idx+')">';
+    html += '<div class="team"><div class="team-logo" style="background:#1a1a2e;border-radius:4px;">'+hLogoHtml+'</div><span class="team-name">'+hn+'</span></div>';
+    html += '<div class="match-info"><div class="match-time">'+timeDisp+'</div><div class="match-date">'+(ds?fmtDate(ds):'')+'</div>'+oddsHtml+'</div>';
+    html += '<div class="team team-away"><div class="team-logo" style="background:#1a1a2e;border-radius:4px;">'+aLogoHtml+'</div><span class="team-name">'+an+'</span></div>';
+    html += '</div>';
+  }
+  html += '</div>';
+  c.innerHTML = html;
+}
+
+// ===== MODAL IA =====
+function openMatch(idx) {
+  var m = _matchData[idx];
+  if (!m) return;
+  var overlay = document.getElementById('modal-overlay');
+  var header = document.getElementById('modal-header');
+  var content = document.getElementById('modal-content');
+  var hImg = m.homeLogo ? '<img class="modal-logo" src="'+m.homeLogo+'" onerror="this.style.display=\'none\'">' : '';
+  var aImg = m.awayLogo ? '<img class="modal-logo" src="'+m.awayLogo+'" onerror="this.style.display=\'none\'">' : '';
+  header.innerHTML = hImg+'<span class="modal-team">'+m.home+'</span><span class="modal-vs">VS</span><span class="modal-team">'+m.away+'</span>'+aImg;
+  content.innerHTML = '<div class="ai-loading"><span class="loader"></span> Analyse IA en cours...</div>';
+  overlay.classList.add('open');
+  analyzeMatch(m, content);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+document.getElementById('modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+async function analyzeMatch(m, container) {
+  try {
+    var oddsStr = '';
+    if (m.oddsHome !== '-') oddsStr += '1 ('+m.home+'): '+m.oddsHome+' | ';
+    if (m.oddsDraw && m.oddsDraw !== 'N/A' && m.oddsDraw !== '-') oddsStr += 'X (nul): '+m.oddsDraw+' | ';
+    if (m.oddsAway !== '-') oddsStr += '2 ('+m.away+'): '+m.oddsAway;
+
+    var prompt = 'Tu es un expert en paris sportifs. Analyse ce match de '+m.sport+' : '+m.home+' vs '+m.away+'.\n';
+    if (oddsStr) prompt += 'Cotes Winamax : '+oddsStr+'\n';
+    prompt += '\nReponds UNIQUEMENT en JSON valide, sans texte avant ou apres, sans backticks :\n';
+    prompt += '[{"category":"SAFE","bet":"nom court du pari","odd":"la cote","explanation":"1-2 phrases pourquoi safe"},{"category":"VALUE","bet":"nom court du pari","odd":"la cote","explanation":"1-2 phrases pourquoi value"},{"category":"RISK","bet":"nom court du pari","odd":"la cote","explanation":"1-2 phrases pourquoi risque mais interessant"}]';
+
+    var res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 800,
+        messages: [{role:'user', content:prompt}]
+      })
+    });
+    var data = await res.json();
+    var text = data.content && data.content[0] ? data.content[0].text : '';
+    text = text.replace(/```json|```/g,'').trim();
+    var bets = JSON.parse(text);
+    var html = '<div class="bets-grid">';
+    for (var i = 0; i < bets.length; i++) {
+      var b = bets[i];
+      var cat = b.category.toLowerCase();
+      html += '<div class="bet-card '+cat+'">';
+      html += '<div class="bet-header"><span class="bet-label">'+b.category+'</span><span class="bet-odd">'+b.odd+'</span></div>';
+      html += '<div class="bet-name">'+b.bet+'</div>';
+      html += '<div class="bet-desc">'+b.explanation+'</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  } catch(e) {
+    container.innerHTML = '<div class="error-msg">Erreur analyse : '+e.message+'</div>';
+  }
+}
+</script>
+</body>
+</html>
