@@ -544,20 +544,29 @@ async function analyzeMatch(m, container) {
     } else {
       var oH = parseFloat(m.oddsHome), oA = parseFloat(m.oddsAway);
       var favName = (!isNaN(oH) && !isNaN(oA) && oH <= oA) ? m.home : m.away;
-      var favOdd = (!isNaN(oH) && !isNaN(oA)) ? Math.min(oH, oA).toFixed(2) : null;
       var undName = favName === m.home ? m.away : m.home;
 
-      prompt += 'Propose 3 paris NBA. NBA = PAS DE MATCH NUL, pas de "1X", "draw", "X2".\n\n';
+      var hasTotals = m.rawOdds && m.rawOdds.markets && m.rawOdds.markets['totals'] && m.rawOdds.markets['totals'].length;
+      var hasSpreads = m.rawOdds && m.rawOdds.markets && m.rawOdds.markets['spreads'] && m.rawOdds.markets['spreads'].length;
 
-      if (favOdd && parseFloat(favOdd) < 1.40) {
-        prompt += '⛔ SAFE INTERDIT : "Victoire ' + favName + '" est à ' + favOdd + ', sous 1.40 → tu NE PEUX PAS le mettre en SAFE. Obligatoire : choisis Total Moins de X pts ou Spread ' + favName + ' -X.X à la place.\n\n';
+      prompt += 'Match NBA : ' + m.home + ' vs ' + m.away + '. PAS DE MATCH NUL EN NBA.\n\n';
+      prompt += 'Je t\'impose les 3 types de paris. Tu remplis UNIQUEMENT les détails (seuil, cote, explication) :\n\n';
+
+      if (hasTotals) {
+        var totals = m.rawOdds.markets['totals'];
+        var totalLine = totals[0] && totals[0].point ? totals[0].point : '224.5';
+        prompt += '1. SAFE → pari sur le TOTAL de points du match. Le seuil de référence Winamax est ' + totalLine + ' pts. Choisis Over ou Under selon ton analyse, utilise la cote réelle ci-dessus.\n';
+      } else {
+        prompt += '1. SAFE → pari sur le TOTAL de points du match. Estime un seuil réaliste (ex: Moins de 224.5 pts) et une cote entre 1.75 et 1.90.\n';
       }
-      prompt += '⛔ VALUE INTERDIT : "Victoire ' + undName + '" (trop basique comme outsider). Cherche de la valeur ailleurs.\n';
-      prompt += '⛔ RISK INTERDIT : toute formulation "victoire ' + undName + ' + écart serré" ou variante.\n\n';
 
-      prompt += '✅ SAFE (cote 1.40–1.75) : Total Moins de X pts (utilise les cotes totals ci-dessus), ou Spread ' + favName + ' -X.X si cote ≥ 1.40.\n';
-      prompt += '✅ VALUE : prop joueur star OU total Plus de X pts OU spread avec valeur math. Ex: "' + favName.split(' ').pop() + ' meilleur joueur Over X pts → cote ~1.85".\n';
-      prompt += '✅ RISK (cote 2.00–3.50) : prop joueur précis avec PRÉNOM + NOM COMPLET du joueur star de ' + m.home + ' ou ' + m.away + '. Ex: points Over/Under, rebonds Over/Under, passes Over/Under. Estime la cote selon ses stats cette saison.\n';
+      if (hasSpreads) {
+        prompt += '2. VALUE → pari sur le SPREAD (handicap). Utilise les cotes spread ci-dessus. Choisis le spread qui offre la meilleure valeur mathématique.\n';
+      } else {
+        prompt += '2. VALUE → pari sur le SPREAD (handicap). ' + favName + ' favori : estime un spread réaliste (ex: ' + favName + ' -6.5) et une cote entre 1.80 et 1.95.\n';
+      }
+
+      prompt += '3. RISK → prop joueur OBLIGATOIRE. Choisis le joueur star de ' + m.home + ' ou ' + m.away + ' (prénom + nom complet). Propose un pari Over/Under sur ses points, rebonds OU passes décisives cette saison. Estime la cote entre 1.80 et 2.80 selon ses moyennes habituelles.\n';
     }
 
     prompt += '\nRéponds UNIQUEMENT en JSON valide, sans texte avant ni après. Le champ "odd" doit TOUJOURS être une cote numérique (ex: "1.85") jamais "N/A" :\n';
