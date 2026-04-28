@@ -580,6 +580,8 @@ async function analyzeMatch(m, container) {
       'Si la cote du favori est inférieure à 1.40, tu ne le mets JAMAIS en SAFE : tu choisis obligatoirement un autre marché (total, spread, BTTS). ' +
       'En RISK tu proposes TOUJOURS soit un buteur précis avec son nom complet (football), soit un prop joueur avec son nom complet et un seuil précis (NBA). Jamais "victoire outsider".';
 
+    console.log('=== PROMPT GEMINI ===\n' + prompt);
+    console.log('=== MARKETS ===', m.rawOdds);
     var res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + API_GEMINI, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
